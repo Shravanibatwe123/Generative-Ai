@@ -1,0 +1,50 @@
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.stem import PorterStemmer
+from nltk.tokenize import RegexpTokenizer
+from nltk import pos_tag
+# Input
+text="I bought this wireless mouse last week. The delivery was fast, and the product works well. However, the battery life is shorter than expected, and the scroll wheel sometimes gets stuck. Overall, it's a decent product for the price, but there is room for improvement."
+
+nltk.download('punkt')
+nltk.download('punkt_tab')
+nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('averaged_perceptron_tagger_eng')
+
+tokenizer=RegexpTokenizer(r'\w+')
+words=tokenizer.tokenize(text.lower())
+print(words)
+
+stop_words=set(stopwords.words('english'))
+filtered_words=[word for word in words if word not in stop_words]
+print(filtered_words)
+
+stemmed_words=[PorterStemmer().stem(word) for word in filtered_words]
+print(stemmed_words)
+
+tagged=pos_tag(filtered_words)
+print(tagged)
+
+lemmatizer=WordNetLemmatizer()
+lemmatized_words=[lemmatizer.lemmatize(word, pos='v' if tag[1].startswith('V') else 'n') for word, tag in zip(filtered_words, tagged)]
+print(lemmatized_words)
+
+from collections import Counter
+word_freq=Counter(lemmatized_words)
+print(word_freq)
+
+import spacy
+nlp=spacy.load('en_core_web_sm')
+
+for word_str in filtered_words:
+  doc_single_word = nlp(word_str)
+  if doc_single_word:
+    print(doc_single_word[0].text, doc_single_word[0].lemma_)
+print("Named Entities:")
+
+doc=nlp(text)
+for ent in doc.ents:
+  print(ent.text, ent.label_)
