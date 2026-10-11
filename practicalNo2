@@ -1,0 +1,179 @@
+import kagglehub
+
+path = kagglehub.dataset_download("hqdataprofiler/imdb-dataset-of-50k-movie-reviews-cleaned")
+
+print("Path to dataset files:", path)
+
+import os
+import pandas as pd
+
+print(os.listdir(path))
+csv_path = os.path.join(path, "IMDB_Dataset_CLEANED.csv")
+df = pd.read_csv(csv_path)
+print(df.head())
+
+
+# Import Libraries
+
+import nltk
+nltk.download('wordnet')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('averaged_perceptron_tagger_eng')
+nltk.download('stopwords')
+
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import RegexpTokenizer
+from nltk import pos_tag
+
+
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+tokenizer = RegexpTokenizer(r'\w+')
+
+def preprocess_text(text):
+    words = tokenizer.tokenize(text.lower())
+
+    filtered_words = [word for word in words if word not in stop_words]
+
+    tagged_words = pos_tag(filtered_words)
+
+    lemmatized_words = [
+        lemmatizer.lemmatize(word, pos='v' if tag.startswith('V') else 'n')
+        for word, tag in tagged_words
+    ]
+
+    return " ".join(lemmatized_words)
+
+df['processed_review'] = df['review'].apply(preprocess_text)
+
+display(df[['review', 'processed_review']].head())
+
+
+# Label Encoding
+
+from sklearn.preprocessing import LabelEncoder
+
+label_encoder = LabelEncoder()
+df['sentiment_encoded'] = label_encoder.fit_transform(df['sentiment'])
+
+display(df[['sentiment', 'sentiment_encoded']].head())
+
+
+# TF-IDF Vectorization
+ 
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+tfidf_vectorizer = TfidfVectorizer(max_features=5000, min_df=5, max_df=0.8)
+
+X = tfidf_vectorizer.fit_transform(df['processed_review'])
+
+y = df['sentiment_encoded']
+
+print("Shape of X (features):", X.shape)
+print("Shape of y (labels):", y.shape)
+
+
+
+
+# Train Test Split
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print("Shape of X_train:", X_train.shape)
+print("Shape of X_test:", X_test.shape)
+print("Shape of y_train:", y_train.shape)
+print("Shape of y_test:", y_test.shape)
+
+
+# ANN Model
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+
+model = Sequential([
+
+    Dense(128, activation='relu', input_shape=(X_train.shape[1],)),
+    Dense(64, activation='relu'),
+    Dense(1, activation='sigmoid')
+])
+
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+model.summary()
+
+
+# Model Training
+
+history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
+
+print("Model training complete.")
+
+
+# Model Evaluation
+
+loss, accuracy = model.evaluate(X_test, y_test, verbose=0)
+print(f"Test Loss: {loss:.4f}")
+print(f"Test Accuracy: {accuracy:.4f}")
+
+
+
+
+
+
+
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(12, 5))
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('Model Accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Model Loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
+plt.tight_layout()
+plt.show()
+
+
+# Confusion Matrix
+
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
+
+y_pred_proba = model.predict(X_test)
+y_pred = (y_pred_proba > 0.5).astype(int)
+
+cm = confusion_matrix(y_test, y_pred, labels=label_encoder.transform(label_encoder.classes_))
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False,
+            xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show() 
+# Classification Report
+
+from sklearn.metrics import classification_report
+
+report = classification_report(y_test, y_pred, target_names=label_encoder.classes_)
+
+print("Classification Report:")
+print(report)
+
+
